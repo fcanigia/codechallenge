@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using ClimateMonitor.Services;
 using ClimateMonitor.Services.Models;
+using Microsoft.AspNetCore.Mvc.Formatters.Xml;
+using System.ComponentModel;
 
 namespace ClimateMonitor.Api.Controllers;
 
@@ -10,13 +12,16 @@ public class ReadingsController : ControllerBase
 {
     private readonly DeviceSecretValidatorService _secretValidator;
     private readonly AlertService _alertService;
+    private readonly FirmwareValidatorService _firmwareValidatorService;
 
     public ReadingsController(
         DeviceSecretValidatorService secretValidator, 
-        AlertService alertService)
+        AlertService alertService,
+        FirmwareValidatorService firmwareValidatorService)
     {
         _secretValidator = secretValidator;
         _alertService = alertService;
+        _firmwareValidatorService = firmwareValidatorService;
     }
 
     /// <summary>
@@ -44,6 +49,14 @@ public class ReadingsController : ControllerBase
             return Problem(
                 detail: "Device secret is not within the valid range.",
                 statusCode: StatusCodes.Status401Unauthorized);
+        }
+
+        if (!_firmwareValidatorService.ValidateFirmware(deviceReadingRequest.FirmwareVersion))
+        {
+            return ValidationProblem(
+                detail: "The firmware value does not match semantic versioning format.",
+                statusCode: StatusCodes.Status400BadRequest
+                );
         }
 
         return Ok(_alertService.GetAlerts(deviceReadingRequest));
